@@ -1,0 +1,52 @@
+{{ $CurrentContainer := where $ "ID" .Docker.CurrentContainerID | first }}
+
+defaults
+  mode http
+  balance first
+  timeout connect 3000ms
+  timeout client 5m
+  timeout server 5m
+  option redispatch
+  maxconn 5000
+  retries 3
+
+frontend stats
+  bind *:9000
+  stats enable
+  stats hide-version
+  stats uri /
+
+{{ $env := .Env }}
+{{ $services := groupByLabel $ "com.docker.compose.service" }}
+
+frontend proxy
+  bind *:80
+
+{{ range $services }}
+{{ with $acls := index (first .).Labels "haproxy_acls" }}
+{{ $acls }}
+{{ end }}
+{{ end }}
+
+{{ $default := index $env "default_backend" }}
+{{ if $default }}
+{{ with index $services $default }}
+  default_backend {{ $default }}
+{{ end }}
+{{ end }}
+
+{{ range $service, $containers := $services }}
+{{ $c := first $containers }}
+{{ if not (or (index $c.Labels "haproxy_acls") (eq $service $default) ) }}{{ continue }}{{ end }}
+{{ $port := (or (index $c.Labels "haproxy_port") (first $c.Addresses).Port) }}
+
+{{ range $knownNetwork := $CurrentContainer.Networks }}
+{{ range $containerNetwork := $c.Networks }}
+{{ if eq $knownNetwork.Name $containerNetwork.Name }}
+backend {{ $service }}
+  server {{ $service }}_docker {{ $containerNetwork.IP }}:{{ $port }} check
+{{ break }}
+{{ end }}
+{{ end }}
+{{ end }}
+{{ end }}
