@@ -17,33 +17,35 @@ frontend stats
   stats uri /
 
 {{ $env := .Env }}
-{{ $services := groupByLabel $ "com.docker.compose.service" }}
+{{ $sortedServices := sortObjectsByKeysDesc $ ".Labels.haproxy_priority" }}
+{{ $servicesByLabel := groupByLabel $ "com.docker.compose.service" }}
 
 frontend proxy
   bind *:80
 
-{{ range $services }}
-{{ with $acls := index (first .).Labels "haproxy_acls" }}
+{{ range $sortedServices }}
+{{ with $acls := index .Labels "haproxy_acls" }}
 {{ $acls }}
 {{ end }}
 {{ end }}
 
 {{ $default := index $env "default_backend" }}
 {{ if $default }}
-{{ with index $services $default }}
+{{ with index $servicesByLabel $default }}
   default_backend {{ $default }}
 {{ end }}
 {{ end }}
 
-{{ range $service, $containers := $services }}
-{{ $c := first $containers }}
-{{ if not (or (index $c.Labels "haproxy_acls") (eq $service $default) ) }}{{ continue }}{{ end }}
+{{ range $c := $sortedServices }}
+{{ $service := index $c.Labels "com.docker.compose.service" }}
+{{ if not (or (index $c.Labels "haproxy_acls") (eq $service $default)) }}{{ continue }}{{ end }}
 {{ $port := (or (index $c.Labels "haproxy_port") (first $c.Addresses).Port) }}
 
 {{ range $knownNetwork := $CurrentContainer.Networks }}
 {{ range $containerNetwork := $c.Networks }}
 {{ if eq $knownNetwork.Name $containerNetwork.Name }}
 backend {{ $service }}
+  {{ index $c.Labels "haproxy_backend_config" }}
   server {{ $service }}_docker {{ $containerNetwork.IP }}:{{ $port }} check
 {{ break }}
 {{ end }}
