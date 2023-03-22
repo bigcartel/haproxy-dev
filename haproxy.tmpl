@@ -1,6 +1,8 @@
 {{ $CurrentContainer := where $ "ID" .Docker.CurrentContainerID | first }}
 
 defaults
+  log stdout format raw local0
+  log global
   mode http
   balance first
   timeout connect 3000ms
@@ -22,6 +24,8 @@ frontend stats
 
 frontend proxy
   bind *:80
+  bind *:443 ssl crt /var/ssl/
+  http-request set-header X-Forwarded-Proto https if { ssl_fc }
 
 {{ range $sortedServices }}
 {{ with $acls := index .Labels "haproxy_acls" }}

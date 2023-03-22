@@ -26,10 +26,16 @@ USER root
 
 ENV DOCKER_HOST unix:///tmp/docker.sock
 
+RUN apk add --no-cache openssl
+
+RUN mkdir /var/ssl
+
 COPY --from=dockergen /usr/local/bin/docker-gen /usr/local/bin/docker-gen
 
-COPY haproxy.tmpl docker-gen.cfg /app/
+COPY haproxy.tmpl docker-gen.cfg entrypoint.sh /app/
 
 WORKDIR /app
+
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 CMD ["docker-gen", "-config", "/app/docker-gen.cfg"]
