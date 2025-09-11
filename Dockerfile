@@ -2,11 +2,11 @@
 ARG DOCKER_GEN_VERSION=0.9.0
 
 # Use a specific version of golang to build both binaries
-FROM golang:1.19-alpine as gobuilder
+FROM golang:1.19-alpine AS gobuilder
 RUN apk add --no-cache git musl-dev
 
 # Build docker-gen from scratch
-FROM gobuilder as dockergen
+FROM gobuilder AS dockergen
 
 ARG DOCKER_GEN_VERSION
 
@@ -24,7 +24,7 @@ FROM haproxy:2.6-alpine
 
 USER root
 
-ENV DOCKER_HOST unix:///tmp/docker.sock
+ENV DOCKER_HOST=unix:///tmp/docker.sock
 
 RUN apk add --no-cache openssl
 
